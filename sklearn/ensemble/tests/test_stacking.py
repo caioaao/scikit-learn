@@ -85,7 +85,7 @@ def test_classification():
 
 def test_multi_output_classification():
     clf_base = RandomForestClassifier(random_state=RANDOM_SEED)
-    clf = StackMetaEstimator(clf_base, method='predict_proba')
+    clf = StackingTransformer(clf_base, method='predict_proba')
     X, y = datasets.make_multilabel_classification()
     Xt = clf.fit_transform(X[:-10], y[:-10])
     print(Xt)
