@@ -94,7 +94,9 @@ def test_multi_output_classification():
 
 STACK_LAYER_PARAMS = {'restack': [True, False],
                       'cv': [3, StratifiedKFold()],
-                      'method': ['auto', 'predict', 'predict_proba']}
+                      'method': ['auto', 'predict', 'predict_proba'],
+                      'n_jobs': [1, 2],
+                      'n_cv_jobs': [1, 2]}
 
 
 def _check_restack(X, Xorig):
@@ -122,6 +124,9 @@ def test_layer_regression():
                  ('svr', LinearSVR())]
 
     for params in ParameterGrid(STACK_LAYER_PARAMS):
+        if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
+            continue  # nested parallelism is not supported
+
         if params['method'] is 'predict_proba':
             continue
         # assert constructor
@@ -136,6 +141,9 @@ def test_layer_classification():
                                                 criterion='entropy'))]
 
     for params in ParameterGrid(STACK_LAYER_PARAMS):
+        if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
+            continue  # nested parallelism is not supported
+
         # assert constructor
         clf_layer = StackLayer(base_estimators=base_clfs, **params)
         _check_layer(clf_layer)

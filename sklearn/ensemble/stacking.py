@@ -162,8 +162,15 @@ class StackLayer(FeatureUnion):
         order.
 
     n_jobs : int, optional (default=1)
-        Number of jobs to be passed to `cross_val_predict` during
-        `fit_transform`.
+        Number of jobs to run in parallel. Each job will be assigned to a base
+        estimator.
+
+    n_cv_jobs: int, optional (default=1)
+        Number of jobs to be passed to each base estimator's
+        ``cross_val_predict`` during ``fit_transform``.
+        If ``n_jobs != 1``, ``n_cv_jobs`` must be 1 and vice-versa, since
+        nested parallelism is not supported and will likely break in future
+        versions.
 
     transformer_weights : dict, optional (default=None)
         Multiplicative weights for features per transformer.
@@ -182,18 +189,19 @@ class StackLayer(FeatureUnion):
                transformer_weights=None)
     """
     def __init__(self, base_estimators=[], restack=False, cv=3, method='auto',
-                 n_jobs=1, transformer_weights=None):
+                 n_jobs=1, n_cv_jobs=1, transformer_weights=None):
         self.base_estimators = base_estimators
         self.restack = restack
         self.cv = cv
         self.method = method
         self.n_jobs = n_jobs
+        self.n_cv_jobs = n_cv_jobs
         self.transformer_weights = transformer_weights
         self._update_layer()
 
     def _wrap_estimator(self, estimator):
         return StackingTransformer(estimator, cv=self.cv, method=self.method,
-                                   n_jobs=self.n_jobs)
+                                   n_jobs=self.n_cv_jobs)
 
     def _update_layer(self):
         self.transformer_list = [(name, self._wrap_estimator(x))
