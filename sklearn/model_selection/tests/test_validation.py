@@ -53,6 +53,7 @@ from sklearn.metrics.scorer import check_scoring
 
 from sklearn.linear_model import Ridge, LogisticRegression
 from sklearn.linear_model import PassiveAggressiveClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.cluster import KMeans
@@ -794,6 +795,11 @@ def test_cross_val_predict_input_types():
     assert_equal(predictions.shape, (150, 2))
 
     predictions = cross_val_predict(clf, X_sparse, y)
+    assert_array_equal(predictions.shape, (150,))
+
+    multioutput_clf = RandomForestClassifier(random_state=0)
+    predictions = cross_val_predict(multioutput_clf, X_sparse, multioutput_y,
+                                    method='predict_proba')
     assert_array_equal(predictions.shape, (150,))
 
     # test with multioutput y
