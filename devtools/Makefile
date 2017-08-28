@@ -18,5 +18,5 @@ docker-build:
 	cd docker/ && \
 	docker build  \
 		--build-arg BASE_IMAGE=$(PYTHON_BASE) \
-		--build-arg UID=$(UID) \
+		--build-arg DEVELOPER_UID=$(UID) \
 		-t $(DOCKER_IMAGE_NAME) .
