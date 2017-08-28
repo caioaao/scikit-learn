@@ -14,6 +14,7 @@ ifeq ($(BITS),32)
   NOSETESTS:=$(NOSETESTS) -c setup32.cfg
 endif
 
+.PHONY: devtools
 
 all: clean inplace test
 
@@ -68,3 +69,6 @@ code-analysis:
 
 flake8-diff:
 	./build_tools/travis/flake8_diff.sh
+
+devtools:
+	$(MAKE) -C devtools all
