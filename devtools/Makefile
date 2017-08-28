@@ -7,12 +7,9 @@ DOCKER_IMAGE_NAME ?= sklearn-devel
 PYTHON_BASE       ?= python:2.7.13-jessie
 UID               ?= 1000
 
-.PHONY: docker-build clean
+.PHONY: docker-build
 
-all: clean docker-build # env-cmd
-
-clean:
-	rm -rf docker/
+all: docker-build
 
 docker-build:
 	cd docker/ && \
