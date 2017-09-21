@@ -144,7 +144,7 @@ def _identity_transformer():
     return FunctionTransformer(_identity)
 
 
-def make_stack_layer(base_estimators=[], restack=False, cv=3, method='auto',
+def make_stack_layer(base_estimators, restack=False, cv=3, method='auto',
                      n_jobs=1, n_cv_jobs=1, transformer_weights=None):
     """ Construct single layer for model stacking
 
