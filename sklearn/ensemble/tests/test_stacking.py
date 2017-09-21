@@ -83,13 +83,13 @@ def test_classification():
                 _check_estimator(blended_clf, **fit_params)
 
 
-def test_multi_output_classification():
-    clf_base = RandomForestClassifier(random_state=RANDOM_SEED)
-    clf = StackingTransformer(clf_base, method='predict_proba')
-    X, y = datasets.make_multilabel_classification()
-    Xt = clf.fit_transform(X[:-10], y[:-10])
-    print(Xt)
-    print(Xt.ndim)
+# def test_multi_output_classification():
+#     clf_base = RandomForestClassifier(random_state=RANDOM_SEED)
+#     clf = StackingTransformer(clf_base, method='predict_proba')
+#     X, y = datasets.make_multilabel_classification()
+#     Xt = clf.fit_transform(X[:-10], y[:-10])
+#     print(Xt)
+#     print(Xt.ndim)
 
 
 STACK_LAYER_PARAMS = {'restack': [True, False],
