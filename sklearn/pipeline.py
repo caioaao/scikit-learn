@@ -26,6 +26,32 @@ from .utils.metaestimators import _BaseComposition
 __all__ = ['Pipeline', 'FeatureUnion', 'make_pipeline', 'make_union']
 
 
+# weight and fit_params are not used but it allows _fit_one_transformer,
+# _transform_one and _fit_transform_one to have the same signature to
+#  factorize the code in ColumnTransformer
+def _fit_one_transformer(transformer, X, y, weight=None, **fit_params):
+    return transformer.fit(X, y)
+
+
+def _transform_one(transformer, X, y, weight, **fit_params):
+    res = transformer.transform(X)
+    # if we have a weight for this transformer, multiply output
+    if weight is None:
+        return res
+    return res * weight
+
+
+def _fit_transform_one(transformer, X, y, weight, **fit_params):
+    if hasattr(transformer, 'fit_transform'):
+        res = transformer.fit_transform(X, y, **fit_params)
+    else:
+        res = transformer.fit(X, y, **fit_params).transform(X)
+    # if we have a weight for this transformer, multiply output
+    if weight is None:
+        return res, transformer
+    return res * weight, transformer
+
+
 class Pipeline(_BaseComposition):
     """Pipeline of transforms with a final estimator.
 
@@ -147,6 +173,11 @@ class Pipeline(_BaseComposition):
         self._set_params('steps', **kwargs)
         return self
 
+    @property
+    def _fit_transform_one(self):
+        # property needed because `memory.cache` doesn't accept class methods
+        return _fit_transform_one
+
     def _validate_steps(self):
         names, estimators = zip(*self.steps)
 
@@ -194,7 +225,7 @@ class Pipeline(_BaseComposition):
         # Setup the memory
         memory = check_memory(self.memory)
 
-        fit_transform_one_cached = memory.cache(_fit_transform_one)
+        fit_transform_one_cached = memory.cache(self._fit_transform_one)
 
         fit_params_steps = dict((name, {}) for name, step in self.steps
                                 if step is not None)
@@ -582,32 +613,6 @@ def make_pipeline(*steps, **kwargs):
     return Pipeline(_name_estimators(steps), memory=memory)
 
 
-# weight and fit_params are not used but it allows _fit_one_transformer,
-# _transform_one and _fit_transform_one to have the same signature to
-#  factorize the code in ColumnTransformer
-def _fit_one_transformer(transformer, X, y, weight=None, **fit_params):
-    return transformer.fit(X, y)
-
-
-def _transform_one(transformer, X, y, weight, **fit_params):
-    res = transformer.transform(X)
-    # if we have a weight for this transformer, multiply output
-    if weight is None:
-        return res
-    return res * weight
-
-
-def _fit_transform_one(transformer, X, y, weight, **fit_params):
-    if hasattr(transformer, 'fit_transform'):
-        res = transformer.fit_transform(X, y, **fit_params)
-    else:
-        res = transformer.fit(X, y, **fit_params).transform(X)
-    # if we have a weight for this transformer, multiply output
-    if weight is None:
-        return res, transformer
-    return res * weight, transformer
-
-
 class FeatureUnion(_BaseComposition, TransformerMixin):
     """Concatenates results of multiple transformer objects.
 
@@ -710,6 +715,18 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
                 for name, trans in self.transformer_list
                 if trans is not None)
 
+    @property
+    def _fit_one_transformer(self):
+        return _fit_one_transformer
+
+    @property
+    def _fit_transform_one(self):
+        return _fit_transform_one
+
+    @property
+    def _transform_one(self):
+        return _transform_one
+
     def get_feature_names(self):
         """Get feature names from all transformers.
 
@@ -747,7 +764,7 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
         self.transformer_list = list(self.transformer_list)
         self._validate_transformers()
         transformers = Parallel(n_jobs=self.n_jobs)(
-            delayed(_fit_one_transformer)(trans, X, y)
+            delayed(self._fit_one_transformer)(trans, X, y)
             for _, trans, _ in self._iter())
         self._update_transformer_list(transformers)
         return self
@@ -771,8 +788,8 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
         """
         self._validate_transformers()
         result = Parallel(n_jobs=self.n_jobs)(
-            delayed(_fit_transform_one)(trans, X, y, weight,
-                                        **fit_params)
+            delayed(self._fit_transform_one)(trans, X, y, weight,
+                                             **fit_params)
             for name, trans, weight in self._iter())
 
         if not result:
@@ -801,7 +818,7 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
             sum of n_components (output dimension) over transformers.
         """
         Xs = Parallel(n_jobs=self.n_jobs)(
-            delayed(_transform_one)(trans, X, None, weight)
+            delayed(self._transform_one)(trans, X, None, weight)
             for name, trans, weight in self._iter())
         if not Xs:
             # All transformers are None
