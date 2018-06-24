@@ -14,7 +14,7 @@ from sklearn.utils.mocking import CheckingClassifier
 from sklearn.utils.testing import (assert_equal, assert_array_equal,
                                    assert_false)
 from sklearn.utils.testing import SkipTest
-from sklearn.ensemble import (StackableTransformer, make_stack_layer)
+from sklearn.ensemble import (StackableTransformer)
 from sklearn.linear_model import (RidgeClassifier, LinearRegression)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC, LinearSVR, SVC

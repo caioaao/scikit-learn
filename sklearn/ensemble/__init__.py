@@ -17,8 +17,7 @@ from .weight_boosting import AdaBoostRegressor
 from .gradient_boosting import GradientBoostingClassifier
 from .gradient_boosting import GradientBoostingRegressor
 from .voting_classifier import VotingClassifier
-from .stacking import StackableTransformer
-from .stacking import make_stack_layer
+from .stacking import StackableTransformer, StackingLayer, StackingPipeline
 
 from . import bagging
 from . import forest
@@ -32,5 +31,5 @@ __all__ = ["BaseEnsemble", "RandomForestClassifier", "RandomForestRegressor",
            "IsolationForest", "GradientBoostingClassifier",
            "GradientBoostingRegressor", "AdaBoostClassifier",
            "AdaBoostRegressor", "VotingClassifier", "StackableTransformer",
-           "make_stack_layer", "bagging", "forest", "gradient_boosting",
-           "partial_dependence", "weight_boosting"]
+           "StackingLayer", "StackingPipeline", "bagging", "forest",
+           "gradient_boosting", "partial_dependence", "weight_boosting"]
