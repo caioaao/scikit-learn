@@ -33,12 +33,16 @@ def _fit_one_transformer(transformer, X, y, weight=None, **fit_params):
     return transformer.fit(X, y)
 
 
-def _transform_one(transformer, X, y, weight, **fit_params):
-    res = transformer.transform(X)
+def _apply_weight(Xt, weight=None):
     # if we have a weight for this transformer, multiply output
     if weight is None:
-        return res
-    return res * weight
+        return Xt
+    return Xt * weight
+
+
+def _transform_one(transformer, X, y, weight, **fit_params):
+    res = transformer.transform(X)
+    return _apply_weight(res, weight)
 
 
 def _fit_transform_one(transformer, X, y, weight, **fit_params):
@@ -46,10 +50,7 @@ def _fit_transform_one(transformer, X, y, weight, **fit_params):
         res = transformer.fit_transform(X, y, **fit_params)
     else:
         res = transformer.fit(X, y, **fit_params).transform(X)
-    # if we have a weight for this transformer, multiply output
-    if weight is None:
-        return res, transformer
-    return res * weight, transformer
+    return _apply_weight(res, weight), transformer
 
 
 class Pipeline(_BaseComposition):
