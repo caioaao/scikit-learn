@@ -14,7 +14,7 @@ from sklearn.utils.mocking import CheckingClassifier
 from sklearn.utils.testing import (assert_equal, assert_array_equal,
                                    assert_false)
 from sklearn.utils.testing import SkipTest
-from sklearn.ensemble import (StackingTransformer, make_stack_layer)
+from sklearn.ensemble import (StackableTransformer, make_stack_layer)
 from sklearn.linear_model import (RidgeClassifier, LinearRegression)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC, LinearSVR, SVC
@@ -65,7 +65,7 @@ def test_regression():
 
     for reg in regressors:
         for params in ParameterGrid(meta_params):
-            blended_reg = StackingTransformer(reg, **params)
+            blended_reg = StackableTransformer(reg, **params)
             for fit_params in META_ESTIMATOR_FIT_PARAMS:
                 _check_estimator(blended_reg, **fit_params)
 
@@ -89,7 +89,7 @@ def test_transformer_from_classification():
         meta_params.update(META_ESTIMATOR_PARAMS)
 
         for params in ParameterGrid(meta_params):
-            blended_clf = StackingTransformer(clf, **params)
+            blended_clf = StackableTransformer(clf, **params)
             for fit_params in META_ESTIMATOR_FIT_PARAMS:
                 _check_estimator(blended_clf, **fit_params)
 
@@ -97,7 +97,7 @@ def test_transformer_from_classification():
 def test_multi_output_classification():
     raise SkipTest("Test is broken while #8773 is not fixed")
     clf_base = RandomForestClassifier(random_state=RANDOM_SEED)
-    clf = StackingTransformer(clf_base, method='predict_proba')
+    clf = StackableTransformer(clf_base, method='predict_proba')
     X, y = datasets.make_multilabel_classification()
     clf.fit_transform(X[:-10], y[:-10])
 
@@ -174,7 +174,7 @@ def test_method_selection():
     clf = SVC()
     X = np.asarray([[1, 2], [1, 2], [1, 2], [1, 2]])
     y = np.asarray([1, 0, 1, 0])
-    clf_T = StackingTransformer(clf, cv=2, method='auto')
+    clf_T = StackableTransformer(clf, cv=2, method='auto')
 
     # asserts that fit results are taken into consideration when choosing
     # method name
@@ -209,9 +209,9 @@ def test_pipeline_consistency():
         pass
 
     # checks that estimator receives input of the same type as it was passed to
-    # StackingTransformer
+    # StackableTransformer
     for data in datasets:
         X_class = type(data['X'])
         clf = CheckingClassifier(check_X=lambda X: isinstance(X, X_class))
-        clf_T = StackingTransformer(clf, cv=2)
+        clf_T = StackableTransformer(clf, cv=2)
         clf_T.fit_transform(data['X'], data['y'])

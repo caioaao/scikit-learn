@@ -1186,22 +1186,22 @@ We can then apply ``final_classifier`` in our classification problem.
 
 .. _stacking_transformer:
 
-The :class:`StackingTransformer`
+The :class:`StackableTransformer`
 --------------------------------
 
 Under the hood, this is the class that implements what's needed to turn an
 estimator into a transformer that can be used for stacked
 generalization. :func:`make_stack_layer` is actually just a wrapper that takes
-the estimators, wraps them with :class:`StackingTransformer` and joins
+the estimators, wraps them with :class:`StackableTransformer` and joins
 everything with :class:`sklearn.pipeline.FeatureUnion`.
 
 On the simpler use cases, :func:`make_stack_layer` should be enough but for
-some special cases, it can be useful to use :class:`StackingTransformer`
+some special cases, it can be useful to use :class:`StackableTransformer`
 directly.
 
 .. note:: ``fit_transform()`` versus ``fit().transform()``
 
-   Although :class:`StackingTransformer` presents both ways, ``fit_transform``
+   Although :class:`StackableTransformer` presents both ways, ``fit_transform``
    should be used in almost every case. Calling ``fit_transform`` will output
    the cross validation transform, while ``fit().transform()`` won't. The
    latter should only be used when the cross validation prediction is not

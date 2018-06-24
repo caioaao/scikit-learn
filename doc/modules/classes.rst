@@ -418,7 +418,7 @@ Samples generator
    ensemble.RandomForestRegressor
    ensemble.RandomTreesEmbedding
    ensemble.VotingClassifier
-   ensemble.StackingTransformer
+   ensemble.StackableTransformer
 
 .. autosummary::
    :toctree: generated/

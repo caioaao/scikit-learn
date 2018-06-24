@@ -9,13 +9,13 @@ from ..pipeline import FeatureUnion
 from ..preprocessing import FunctionTransformer
 
 
-class StackingTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
+class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
     """Transformer to turn estimators into meta-estimators for model stacking
 
     In stacked generalization, meta estimators are combined in layers to
     improve the final result. To prevent data leaks between layers, a procedure
     similar to cross validation is adopted, where the model is trained in one
-    part of the set and predicts the other part. In ``StackingTransformer``, it
+    part of the set and predicts the other part. In ``StackableTransformer``, it
     happens during ``fit_transform``, as the result of this procedure is what
     should be used by the next layers. Note that this behavior is different
     from ``fit().transform()``. Read more in the
@@ -254,7 +254,7 @@ def make_stack_layer(estimators, restack=False, cv=3, method='auto',
            [  6.66666667e-01,   3.33333333e-01,  -4.09417930e-02,
               7.00000000e+00,  -8.40000000e+01]])
     """
-    transformer_list = [(name, StackingTransformer(estimator, cv=cv,
+    transformer_list = [(name, StackableTransformer(estimator, cv=cv,
                                                    method=method,
                                                    n_jobs=n_cv_jobs))
                         for name, estimator in estimators]
