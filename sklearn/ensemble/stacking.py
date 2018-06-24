@@ -15,11 +15,10 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
     In stacked generalization, meta estimators are combined in layers to
     improve the final result. To prevent data leaks between layers, a procedure
     similar to cross validation is adopted, where the model is trained in one
-    part of the set and predicts the other part. In ``StackableTransformer``, it
-    happens during ``fit_transform``, as the result of this procedure is what
-    should be used by the next layers. Note that this behavior is different
-    from ``fit().transform()``. Read more in the
-    :ref:`User Guide <stacking_transformer>`.
+    part of the set and predicts the other part. In ``StackableTransformer``,
+    it happens during ``blend``, as the result of this procedure is what should
+    be used by the next layers. Read more in the :ref:`User Guide
+    <stacking_transformer>`.
 
     Parameters
     ----------
@@ -29,7 +28,7 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
     cv : int, cross-validation generator or an iterable, optional (default=3)
         Determines the cross-validation splitting strategy to be used for
         generating features to train the next layer on the stacked ensemble or,
-        more specifically, during ``fit_transform``.
+        more specifically, during ``blend``.
 
         Possible inputs for cv are:
 
@@ -54,7 +53,8 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
 
     n_jobs : int, optional (default=1)
         Number of jobs to be passed to ``cross_val_predict`` during
-        ``fit_transform``.
+        ``blend``.
+
     """
     def __init__(self, estimator, cv=3, method='auto', n_jobs=1):
         self.estimator = estimator
@@ -62,7 +62,7 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
         self.method = method
         self.n_jobs = n_jobs
 
-    def fit(self, X, y, **fit_params):
+    def fit(self, X, y=None, **fit_params):
         """Fit the estimator.
 
         This should only be used in special situations. Read more in the
@@ -88,7 +88,8 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
         self.estimator_.fit(X, y, **fit_params)
         return self
 
-    def _method_name(self):
+    @property
+    def _estimator_function_name(self):
         if self.method == 'auto':
             if getattr(self.estimator_, 'predict_proba', None):
                 method = 'predict_proba'
@@ -100,6 +101,10 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
             method = self.method
 
         return method
+
+    @property
+    def _estimator_function(self):
+        return getattr(self.estimator_, self._estimator_function_name)
 
     def transform(self, *args, **kwargs):
         """Transform dataset.
@@ -121,20 +126,15 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
             Transformed dataset.
 
         """
-        t = getattr(self.estimator_, self._method_name())
-        preds = t(*args, **kwargs)
+        preds = self._estimator_function(*args, **kwargs)
 
         if preds.ndim == 1:
             preds = preds.reshape(-1, 1)
 
         return preds
 
-    def fit_transform(self, X, y, **fit_params):
+    def fit_transform(self, X, y=None, **fit_params):
         """Fit estimator and transform dataset.
-
-        Note that this behavior is different from ``fit().transform()`` as it
-        will return the cross validation predictions instead. Read more in the
-        :ref:`User Guide <stacking_transformer>`.
 
         Parameters
         ----------
@@ -152,10 +152,32 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
         X_transformed : sparse matrix, shape=(n_samples, n_out)
             Transformed dataset.
         """
-        self.estimator_ = clone(self.estimator).fit(X, y, **fit_params)
+        return self.fit(X, y, **fit_params).transform(X)
 
+    def blend(self, X, y, **fit_params):
+        """Transform dataset using cross validation.
+
+        Read more in the :ref:`User Guide <stacking_transformer>`.
+
+        Parameters
+        ----------
+        X : array-like or sparse matrix, shape=(n_samples, n_features)
+            Input data used to build forests. Use ``dtype=np.float32`` for
+            maximum efficiency.
+
+        y : array-like, shape = [n_samples]
+            Target values.
+
+        **fit_params : parameters to be passed to the base estimator.
+
+        Returns
+        -------
+        X_transformed : sparse matrix, shape=(n_samples, n_out)
+            Transformed dataset.
+
+        """
         preds = cross_val_predict(clone(self.estimator), X, y, cv=self.cv,
-                                  method=self._method_name(),
+                                  method=self._estimator_function_name,
                                   n_jobs=self.n_jobs, fit_params=fit_params)
 
         if preds.ndim == 1:
@@ -255,8 +277,8 @@ def make_stack_layer(estimators, restack=False, cv=3, method='auto',
               7.00000000e+00,  -8.40000000e+01]])
     """
     transformer_list = [(name, StackableTransformer(estimator, cv=cv,
-                                                   method=method,
-                                                   n_jobs=n_cv_jobs))
+                                                    method=method,
+                                                    n_jobs=n_cv_jobs))
                         for name, estimator in estimators]
     if restack:
         transformer_list.append(('restacker', _identity_transformer()))
