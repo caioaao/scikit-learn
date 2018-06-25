@@ -691,6 +691,15 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
         self._set_params('transformer_list', **kwargs)
         return self
 
+    def _validate_one_transformer(self, t):
+        if t is None:
+            return
+        if (not (hasattr(t, "fit") or hasattr(t, "fit_transform")) or not
+                hasattr(t, "transform")):
+            raise TypeError("All estimators should implement fit and "
+                            "transform. '%s' (type %s) doesn't" %
+                            (t, type(t)))
+
     def _validate_transformers(self):
         names, transformers = zip(*self.transformer_list)
 
@@ -699,13 +708,7 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
 
         # validate estimators
         for t in transformers:
-            if t is None:
-                continue
-            if (not (hasattr(t, "fit") or hasattr(t, "fit_transform")) or not
-                    hasattr(t, "transform")):
-                raise TypeError("All estimators should implement fit and "
-                                "transform. '%s' (type %s) doesn't" %
-                                (t, type(t)))
+            self._validate_one_transformer(t)
 
     def _iter(self):
         """
@@ -770,6 +773,13 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
         self._update_transformer_list(transformers)
         return self
 
+    def _stack_results(self, Xs):
+        if any(sparse.issparse(f) for f in Xs):
+            Xs = sparse.hstack(Xs).tocsr()
+        else:
+            Xs = np.hstack(Xs)
+        return Xs
+
     def fit_transform(self, X, y=None, **fit_params):
         """Fit all transformers, transform the data and concatenate results.
 
@@ -798,11 +808,8 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
             return np.zeros((X.shape[0], 0))
         Xs, transformers = zip(*result)
         self._update_transformer_list(transformers)
-        if any(sparse.issparse(f) for f in Xs):
-            Xs = sparse.hstack(Xs).tocsr()
-        else:
-            Xs = np.hstack(Xs)
-        return Xs
+
+        return self._stack_results(Xs)
 
     def transform(self, X):
         """Transform X separately by each transformer, concatenate results.
@@ -821,14 +828,12 @@ class FeatureUnion(_BaseComposition, TransformerMixin):
         Xs = Parallel(n_jobs=self.n_jobs)(
             delayed(self._transform_one)(trans, X, None, weight)
             for name, trans, weight in self._iter())
+
         if not Xs:
             # All transformers are None
             return np.zeros((X.shape[0], 0))
-        if any(sparse.issparse(f) for f in Xs):
-            Xs = sparse.hstack(Xs).tocsr()
-        else:
-            Xs = np.hstack(Xs)
-        return Xs
+
+        return self._stack_results(Xs)
 
     def _update_transformer_list(self, transformers):
         transformers = iter(transformers)
