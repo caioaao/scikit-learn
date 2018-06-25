@@ -6,7 +6,9 @@
 from ...base import (BaseEstimator, TransformerMixin, MetaEstimatorMixin, clone)
 from ...model_selection import cross_val_predict
 
-class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
+
+class StackableTransformer(BaseEstimator, MetaEstimatorMixin,
+                           TransformerMixin):
     """Transformer to turn estimators into meta-estimators for model stacking
 
     In stacked generalization, meta estimators are combined in layers to
@@ -173,9 +175,11 @@ class StackableTransformer(BaseEstimator, MetaEstimatorMixin, TransformerMixin):
             Transformed dataset.
 
         """
-        preds = cross_val_predict(clone(self.estimator), X, y, cv=self.cv,
+        self.estimator_ = clone(self.estimator)
+        preds = cross_val_predict(self.estimator_, X, y, cv=self.cv,
                                   method=self._estimator_function_name,
                                   n_jobs=self.n_jobs, fit_params=fit_params)
+        self.estimator_ = None
 
         if preds.ndim == 1:
             preds = preds.reshape(-1, 1)

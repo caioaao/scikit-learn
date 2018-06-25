@@ -14,11 +14,12 @@ from sklearn.utils.mocking import CheckingClassifier
 from sklearn.utils.testing import (assert_equal, assert_array_equal,
                                    assert_false)
 from sklearn.utils.testing import SkipTest
-from sklearn.ensemble import (StackableTransformer)
+from sklearn.ensemble import (StackableTransformer, StackingPipeline, StackingLayer)
 from sklearn.linear_model import (RidgeClassifier, LinearRegression)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC, LinearSVR, SVC
 from sklearn import datasets
+from sklearn.base import clone
 from sklearn.model_selection import (ParameterGrid, StratifiedKFold)
 
 iris = datasets.load_iris()
@@ -102,48 +103,74 @@ def test_multi_output_classification():
     clf.fit_transform(X[:-10], y[:-10])
 
 
-STACK_LAYER_PARAMS = {'restack': [True, False],
+STACK_LAYER_PARAMS = {'restack': [False], #TODO [True, False],
                       'cv': [3, StratifiedKFold()],
                       'method': ['auto', 'predict', 'predict_proba'],
                       'n_jobs': [1, 2],
                       'n_cv_jobs': [1, 2]}
 
 
-# def _check_restack(X, Xorig):
-#     # checks that original data is appended to the rest of the features
-#     assert_array_equal(Xorig, X[:, -Xorig.shape[1]:])
-#
-#
-# def _check_layer(l, restack):
-#     # check that we can fit_transform the data
-#     Xt = l.fit_transform(X, y)
-#     if restack:
-#         _check_restack(Xt, X)
-#
-#     # check that we can transform the data
-#     Xt = l.transform(X)
-#     if restack:
-#         _check_restack(Xt, X)
-#
-#     # check that `fit` is accessible
-#     l.fit(X, y)
-#
-#
-# def test_layer_regression():
-#     base_regs = [('lr', LinearRegression()),
-#                  ('svr', LinearSVR())]
-#
-#     for params in ParameterGrid(STACK_LAYER_PARAMS):
-#         if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
-#             continue  # nested parallelism is not supported
-#
-#         if params['method'] is 'predict_proba':
-#             continue
-#         # assert constructor
-#         reg_layer = make_stack_layer(estimators=base_regs, **params)
-#         _check_layer(reg_layer, params['restack'])
-#
-#
+def _check_restack(X, Xorig):
+    # checks that original data is appended to the rest of the features
+    assert_array_equal(Xorig, X[:, -Xorig.shape[1]:])
+
+
+def _check_layer(l, restack):
+    l_ = clone(l)
+
+    # check that we can fit_transform the data
+    Xt = l_.fit_transform(X, y)
+    if restack:
+        _check_restack(Xt, X)
+
+    # check that we can transform the data
+    Xt = l_.transform(X)
+    if restack:
+        _check_restack(Xt, X)
+
+    # check that `fit` is accessible
+    l_ = clone(l)
+    l_.fit(X, y)
+
+    # check that we can blend the data
+    Xt = l_.blend(X, y)
+    if restack:
+        _check_restack(Xt, X)
+
+    # check that `fit_blend` is accessible
+    l_ = clone(l)
+    Xt = l_.fit_blend(X, y)
+    if restack:
+        _check_restack(Xt, X)
+
+    # check that `fit_blend` fits the layer
+    l_ = clone(l)
+    Xt0 = l_.fit_blend(X, y)
+
+    Xt = l_.blend(X, y)
+    if restack:
+        _check_restack(Xt, X)
+
+    # check results match
+    assert_array_equal(Xt0, Xt)
+
+
+def test_layer_regression():
+    base_regs = [('lr', StackableTransformer(LinearRegression())),
+                 ('svr', StackableTransformer(
+                     LinearSVR(random_state=RANDOM_SEED)))]
+
+    for params in ParameterGrid(STACK_LAYER_PARAMS):
+        if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
+            continue  # nested parallelism is not supported
+
+        if params['method'] is 'predict_proba':
+            continue
+        # assert constructor
+        reg_layer = StackingLayer(base_regs, **params)
+        _check_layer(reg_layer, params['restack'])
+
+
 # def test_layer_classification():
 #     base_clfs = [('rf1', RandomForestClassifier(random_state=RANDOM_SEED,
 #                                                 criterion='gini')),
