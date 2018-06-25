@@ -103,8 +103,7 @@ def test_multi_output_classification():
     clf.fit_transform(X[:-10], y[:-10])
 
 
-STACK_LAYER_PARAMS = {'restack': [False], #TODO [True, False],
-                      'cv': [3, StratifiedKFold()],
+STACK_LAYER_PARAMS = {'cv': [3, StratifiedKFold()],
                       'method': ['auto', 'predict', 'predict_proba'],
                       'n_jobs': [1, 2],
                       'n_cv_jobs': [1, 2]}
@@ -168,24 +167,25 @@ def test_layer_regression():
             continue
         # assert constructor
         reg_layer = StackingLayer(base_regs, **params)
-        _check_layer(reg_layer, params['restack'])
+        _check_layer(reg_layer, False)
 
 
-# def test_layer_classification():
-#     base_clfs = [('rf1', RandomForestClassifier(random_state=RANDOM_SEED,
-#                                                 criterion='gini')),
-#                  ('rf2', RandomForestClassifier(random_state=RANDOM_SEED,
-#                                                 criterion='entropy'))]
-#
-#     for params in ParameterGrid(STACK_LAYER_PARAMS):
-#         if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
-#             continue  # nested parallelism is not supported
-#
-#         # assert constructor
-#         clf_layer = make_stack_layer(estimators=base_clfs, **params)
-#         _check_layer(clf_layer, params['restack'])
-#
-#
+def test_layer_classification():
+    base_clfs = [
+        ('rf1', StackableTransformer(RandomForestClassifier(
+            random_state=RANDOM_SEED, criterion='gini'))),
+        ('rf2', StackableTransformer(RandomForestClassifier(
+            random_state=RANDOM_SEED, criterion='entropy')))]
+
+    for params in ParameterGrid(STACK_LAYER_PARAMS):
+        if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
+            continue  # nested parallelism is not supported
+
+        # assert constructor
+        clf_layer = StackingLayer(base_clfs, **params)
+        _check_layer(clf_layer, False)
+
+
 # def test_layer_restack():
 #     base_estimators = [('lr1', LinearRegression()),
 #                        ('lr2', LinearRegression())]
