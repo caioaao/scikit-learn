@@ -14,7 +14,8 @@ from sklearn.utils.mocking import CheckingClassifier
 from sklearn.utils.testing import (assert_equal, assert_array_equal,
                                    assert_false)
 from sklearn.utils.testing import SkipTest
-from sklearn.ensemble import (StackableTransformer, StackingPipeline, StackingLayer)
+from sklearn.ensemble import (StackableTransformer, StackingPipeline,
+                              StackingLayer, make_stack_layer)
 from sklearn.linear_model import (RidgeClassifier, LinearRegression)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC, LinearSVR, SVC
@@ -103,12 +104,6 @@ def test_multi_output_classification():
     clf.fit_transform(X[:-10], y[:-10])
 
 
-STACK_LAYER_PARAMS = {'cv': [3, StratifiedKFold()],
-                      'method': ['auto', 'predict', 'predict_proba'],
-                      'n_jobs': [1, 2],
-                      'n_cv_jobs': [1, 2]}
-
-
 def _check_restack(X, Xorig):
     # checks that original data is appended to the rest of the features
     assert_array_equal(Xorig, X[:, -Xorig.shape[1]:])
@@ -154,17 +149,17 @@ def _check_layer(l, restack):
     assert_array_equal(Xt0, Xt)
 
 
+STACK_LAYER_PARAMS = {'n_jobs': [1, 2]}
+
+
 def test_layer_regression():
-    base_regs = [('lr', StackableTransformer(LinearRegression())),
-                 ('svr', StackableTransformer(
-                     LinearSVR(random_state=RANDOM_SEED)))]
+    base_regs = [
+        ('lr', StackableTransformer(
+            LinearRegression())),
+        ('svr', StackableTransformer(
+            LinearSVR(random_state=RANDOM_SEED)))]
 
     for params in ParameterGrid(STACK_LAYER_PARAMS):
-        if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
-            continue  # nested parallelism is not supported
-
-        if params['method'] is 'predict_proba':
-            continue
         # assert constructor
         reg_layer = StackingLayer(base_regs, **params)
         _check_layer(reg_layer, False)
@@ -178,25 +173,31 @@ def test_layer_classification():
             random_state=RANDOM_SEED, criterion='entropy')))]
 
     for params in ParameterGrid(STACK_LAYER_PARAMS):
-        if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
-            continue  # nested parallelism is not supported
-
         # assert constructor
         clf_layer = StackingLayer(base_clfs, **params)
         _check_layer(clf_layer, False)
 
 
-# def test_layer_restack():
-#     base_estimators = [('lr1', LinearRegression()),
-#                        ('lr2', LinearRegression())]
-#     blended_layer = make_stack_layer(base_estimators, restack=True,
-#                                      method='predict')
-#     X = np.random.rand(100, 3)
-#     y = np.random.rand(100)
-#     Xt = blended_layer.fit_transform(X, y)
-#     assert_array_equal(X, Xt[:, 2:])
-#
-#
+STACK_LAYER_FULL_PARAMS = {'cv': [3, StratifiedKFold()],
+                           'restack': [False, True],
+                           'method': ['auto', 'predict', 'predict_proba'],
+                           'n_jobs': [1, 2],
+                           'n_cv_jobs': [1, 2]}
+
+
+def test_layer_helper_constructor():
+    base_estimators = [LinearRegression(), LinearRegression()]
+    for params in ParameterGrid(STACK_LAYER_FULL_PARAMS):
+        if params['n_jobs'] != 1 and params['n_cv_jobs'] != 1:
+            continue  # nested parallelism is not supported
+
+        if params['method'] is 'predict_proba':
+            continue
+
+        reg_layer = make_stack_layer(*base_estimators, **params)
+        _check_layer(reg_layer, params["restack"])
+
+
 # def test_method_selection():
 #     clf = SVC()
 #     X = np.asarray([[1, 2], [1, 2], [1, 2], [1, 2]])

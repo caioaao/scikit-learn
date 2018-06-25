@@ -1,7 +1,8 @@
 import numpy as np
 
-from ...pipeline import Pipeline, FeatureUnion, _apply_weight
+from ...pipeline import Pipeline, FeatureUnion, _apply_weight, _name_estimators
 from ...externals.joblib import Parallel, delayed
+from ...preprocessing import FunctionTransformer
 from .transformer import StackableTransformer
 
 
@@ -15,26 +16,7 @@ def _fit_blend_one(transformer, X, y, weight, **fit_params):
     return Xt, transformer.fit(X, y, **fit_params)
 
 
-class StackingPipeline(Pipeline):
-    def __init__(self, steps, memory=None):
-        super(StackingPipeline, self).__init__(steps, memory)
-
-    @property
-    def _fit_transform_one(self):
-        return _fit_blend_one
-
-
 class StackingLayer(FeatureUnion):
-    def __init__(self, transformer_list, n_jobs=1, transformer_weights=None,
-                 restack=False, cv=3, method='auto', n_cv_jobs=1):
-        super(StackingLayer, self).__init__(
-            transformer_list, n_jobs=n_jobs,
-            transformer_weights=transformer_weights)
-        self.restack = restack
-        self.cv = cv
-        self.method = method
-        self.n_cv_jobs = n_cv_jobs
-
     def _validate_one_transformer(self, t):
         if not hasattr(t, "blend"):
             raise TypeError("All transformers should implement 'blend'."
@@ -76,3 +58,58 @@ class StackingLayer(FeatureUnion):
         self._update_transformer_list(transformers)
 
         return self._stack_results(Xs)
+
+
+class StackingPipeline(Pipeline):
+    def __init__(self, steps, memory=None):
+        super(StackingPipeline, self).__init__(steps, memory)
+
+    @property
+    def _fit_transform_one(self):
+        return _fit_blend_one
+
+    def _validate_steps(self):
+        super(StackingPipeline, self)._validate_steps()
+        names, estimators = zip(*self.steps)
+
+        # validate estimators
+        transformers = estimators[:-1]
+
+        for t in transformers:
+            if t is None:
+                continue
+            if hasattr(t, "blend"):
+                raise TypeError("All intermediate steps should be "
+                                "transformers and implement blend."
+                                " '%s' (type %s) doesn't" % (t, type(t)))
+
+
+def _identity(x):
+    return x
+
+
+def _identity_transformer():
+    """Contructs a transformer that returns its input unchanged"""
+    return FunctionTransformer(_identity, accept_sparse=True)
+
+
+def _wrap_estimators(estimators, cv=3, method='auto', n_cv_jobs=1):
+    return [(name, StackableTransformer(
+        est, cv=cv, method=method, n_jobs=n_cv_jobs))
+            for name, est in estimators]
+
+
+def make_stack_layer(*transformers, n_jobs=1, cv=3, method='auto',
+                     n_cv_jobs=1, restack=False):
+
+    named_transformers = _name_estimators(transformers)
+
+    transformer_list = _wrap_estimators(
+        named_transformers, cv=cv, method=method, n_cv_jobs=n_cv_jobs)
+    if restack:
+        transformer_list.append(
+            ('identity-transformer', StackableTransformer(
+                _identity_transformer(), cv=None, method='transform',
+                n_jobs=1)))
+
+    return StackingLayer(transformer_list, n_jobs=n_jobs)
