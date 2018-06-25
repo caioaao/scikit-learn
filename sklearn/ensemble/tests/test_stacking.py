@@ -104,6 +104,28 @@ def test_multi_output_classification():
     clf.fit_transform(X[:-10], y[:-10])
 
 
+def test_method_selection():
+    clf = SVC()
+    X = np.asarray([[1, 2], [1, 2], [1, 2], [1, 2]])
+    y = np.asarray([1, 0, 1, 0])
+    clf_T = StackableTransformer(clf, cv=2, method='auto')
+
+    # asserts that fit results are taken into consideration when choosing
+    # method name
+    clf_T.set_params(estimator__probability=False)
+    assert(not hasattr(clf_T.estimator, 'predict_proba'))
+    Xt1 = clf_T.fit_transform(X, y)
+    assert_equal(clf_T._estimator_function_name, "decision_function")
+
+    clf_T.set_params(estimator__probability=True)
+    Xt2 = clf_T.fit_transform(X, y)
+    assert_equal(clf_T._estimator_function_name, "predict_proba")
+
+    # asserts that cross_val_predict is called with different methods for each
+    # case
+    assert_false(np.allclose(Xt1, Xt2))
+
+
 def _check_restack(X, Xorig):
     # checks that original data is appended to the rest of the features
     assert_array_equal(Xorig, X[:, -Xorig.shape[1]:])
@@ -196,28 +218,6 @@ def test_layer_helper_constructor():
 
         reg_layer = make_stack_layer(*base_estimators, **params)
         _check_layer(reg_layer, params["restack"])
-
-
-# def test_method_selection():
-#     clf = SVC()
-#     X = np.asarray([[1, 2], [1, 2], [1, 2], [1, 2]])
-#     y = np.asarray([1, 0, 1, 0])
-#     clf_T = StackableTransformer(clf, cv=2, method='auto')
-#
-#     # asserts that fit results are taken into consideration when choosing
-#     # method name
-#     clf_T.set_params(estimator__probability=False)
-#     assert(not hasattr(clf_T.estimator, 'predict_proba'))
-#     Xt1 = clf_T.fit_transform(X, y)
-#     assert_equal(clf_T._method_name(), "decision_function")
-#
-#     clf_T.set_params(estimator__probability=True)
-#     Xt2 = clf_T.fit_transform(X, y)
-#     assert_equal(clf_T._method_name(), "predict_proba")
-#
-#     # asserts that cross_val_predict is called with different methods for each
-#     # case
-#     assert_false(np.allclose(Xt1, Xt2))
 #
 #
 # def test_pipeline_consistency():
